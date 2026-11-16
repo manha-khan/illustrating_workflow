@@ -105,6 +105,90 @@ df_comparison =
             df_patagoniensis_summary)
 df_comparison
 
+## Statistical test to check if the two species differ in TE composition? -----
+# Group subclasses (e.g. "LTR/Gypsy", "LTR/Pao") into main TE orders ("LTR"),
+# because many subclasses have fewer than 5 hits, which makes a chi-square    # test unreliable.
+
+df_order_counts =
+  df_comparison |>
+  mutate(te_order = str_extract(matching_class, "^[^/]+")) |>
+  group_by(species, te_order) |>
+  summarise(annotation_count = sum(annotation_count), .groups = "drop")
+
+df_order_counts
+
+# RC and SINE are still too rare (expected counts below 5), so orders with
+# fewer than 20 hits in total (both species combined) are pooled into "Other".
+
+df_order_counts =
+  df_order_counts |>
+  group_by(te_order) |>
+  mutate(order_total = sum(annotation_count)) |>
+  ungroup() |>
+  mutate(te_order = if_else(order_total < 20, "Other", te_order)) |>
+  group_by(species, te_order) |>
+  summarise(annotation_count = sum(annotation_count), .groups = "drop")
+
+df_order_counts
+
+# Reshape into a contingency table: rows = TE order, columns = species
+mat_order_counts =
+  df_order_counts |>
+  pivot_wider(names_from = species, values_from = annotation_count) |>
+  column_to_rownames("te_order") |>
+  as.matrix()
+
+mat_order_counts
+
+# Chi-square test of independence:
+# H0 = both species have the same proportions of TE orders
+chisq_order = chisq.test(mat_order_counts)
+chisq_order
+
+# Check the test's assumption: all expected counts should be >= 5
+round(chisq_order$expected, 1)
+
+# Subclass-level test: most expected counts are < 5, so the chi-square
+# approximation is unreliable. A Monte Carlo (simulated) p-value is valid
+# for small counts.
+mat_class =
+  df_comparison |>
+  select(matching_class, species, annotation_count) |>
+  pivot_wider(names_from = species, values_from = annotation_count, values_fill = 0) |>
+  column_to_rownames("matching_class") |>
+  as.matrix()
+
+set.seed(123)   # makes the simulated p-value reproducible
+chisq_class = chisq.test(mat_class, simulate.p.value = TRUE, B = 10000)
+chisq_class
+
+# Which subclasses drive the difference? Standardised residuals:
+# values beyond about +/-2 show classes with more/fewer hits than expected
+round(chisq_class$stdres, 1)
+
+sqrt(chisq_order$statistic / sum(mat_order_counts))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Combine raw TE annotation datasets -----
 
 df_TE_combined =
