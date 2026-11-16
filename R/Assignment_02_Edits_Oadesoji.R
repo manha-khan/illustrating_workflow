@@ -6,6 +6,10 @@
 ##         code; data paths fixed from "../data/" to "data/"
 
 
+## Edit 2: chi-square tests of TE composition between species, at order
+##         level and subclass level (simulated p-value for small counts)
+
+
 
 ##***************************
 ## Assignment 01 - Group 10 
@@ -16,6 +20,7 @@
 library(tidyverse)
 conflicted::conflict_prefer("filter", "dplyr")
 library(viridis)
+library(ggrepel)
 # + scale_color/fill_viridis(discrete = T/F)
 theme_set(theme_light())
 
@@ -27,8 +32,6 @@ rm(list = ls())
 
 ## Import T. patagoniensis dataset
 setwd("../illustrating_worflow/")
-df_patagoniensis <- read_csv("../data/GCA_001447655.1.csv")
-
 
 df_patagoniensis <- read_csv("data/GCA_001447655.1.csv")
 df_patagoniensis 
@@ -36,7 +39,6 @@ df_patagoniensis
 
 ## Import T. spiralis dataset
 
-df_spiralis = read_csv("../data/trichinella_spiralis_te.csv")
 df_spiralis = read_csv("data/trichinella_spiralis_te.csv")
 
 df_spiralis 
@@ -168,25 +170,12 @@ round(chisq_class$stdres, 1)
 
 sqrt(chisq_order$statistic / sum(mat_order_counts))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#==> Order level: no significant difference in TE composition
+#==>   (chi-square = 4.07, df = 4, p = 0.40; all expected counts >= 5).
+#==> Subclass level: significant difference (chi-square = 43.90,
+#==>   simulated p < 0.001, 10,000 replicates), driven mainly by LTR/Gypsy
+#==>   (more in T. patagoniensis) and LTR/Pao and DNA/PIF-Harbinger
+#==>   (more in T. spiralis). Grouping into orders hides these opposing shifts
 
 
 ## Combine raw TE annotation datasets -----
@@ -221,43 +210,77 @@ df_comparison |>
 
 ## Plot distribution of TE annotation lengths -----
 
+# Edit 3a: log-scaled x-axis so short and long TEs are both visible;
+# density (not counts) so species with different numbers of hits are
+# comparable; species overlaid in colour-blind-friendly viridis colours.
+
 df_TE_combined |>
-  filter(matching_class %notin% ls_non_te) |>
-  ggplot(aes(x = qry_width)) +
-  geom_histogram() +
-  facet_grid(~ species) +
+  filter(!matching_class %in% ls_non_te) |>
+  ggplot(aes(x = qry_width, fill = species)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 40, alpha = 0.5, position = "identity") +
+  scale_x_log10() +
+  scale_fill_viridis_d(end = 0.8) +
   labs(
     title = "Distribution of TE Annotation Lengths",
-    x = "Annotated TE length (bp)",
-    y = "Frequency"
-  )
+    x = "Annotated TE length (bp, log scale)",
+    y = "Density",
+    fill = "Species")
 
 
 ## Plot annotation counts against total annotated lengths -----
 
-df_comparison |> 
-  ggplot(aes(x = annotation_count, y = total_length)) +
-  geom_point() +
-  geom_smooth() +
+# Edit 3b: removed geom_smooth() (too few points; its curve went below zero,
+# which is impossible for lengths); log scales spread out the points;
+# colour shows TE order; labels name the main classes (50+ hits).
+
+df_comparison |>
+  mutate(te_order = str_extract(matching_class, "^[^/]+")) |>
+  ggplot(aes(x = annotation_count, y = total_length, colour = te_order)) +
+  geom_point(size = 3) +
+  ggrepel::geom_text_repel(
+    aes(label = if_else(annotation_count >= 50, matching_class, "")),
+    size = 3, show.legend = FALSE,
+    min.segment.length = 0, max.overlaps = Inf
+  ) +
+  scale_x_log10(expand = expansion(mult = c(0.05, 0.15))) +
+  scale_y_log10(expand = expansion(mult = c(0.05, 0.20))) +
+  scale_colour_viridis_d(end = 0.9) +
   facet_grid(~ species) +
-  labs(title = "Comparison of TE Abundance & Length",
-       x = "annotated count",
-       y = "annotated sequence length(bp)")
+  labs(
+    title = "Comparison of TE Abundance & Length",
+    x = "Number of annotations (log scale)",
+    y = "Total annotated length (bp, log scale)",
+    colour = "TE order"
+  ) +
+  theme(legend.position = "bottom")
 
 
 
 ## Plot average TE length by class -----
-
+# Edit 3c: classes sorted by average length; species side by side for direct
+# comparison; classes with fewer than 5 hits in a species are left out
+# because averages of 1-4 hits are unreliable.
 
 df_comparison |>
-  ggplot(aes(x = matching_class,
-             y = total_length / annotation_count)) +
-  geom_col() +
+  mutate(mean_length = total_length / annotation_count) |>
+  filter(annotation_count >= 5) |>
+  ggplot(aes(x = reorder(matching_class, mean_length),
+             y = mean_length, fill = species)) +
+  geom_col(position = position_dodge(preserve = "single")) +
   coord_flip() +
-  facet_grid(~ species) +
+  scale_fill_viridis_d(end = 0.8) +
   labs(
     title = "Average TE Length by Class",
     x = "TE class",
-    y = "Average annotated length (bp)"
-  )
+    y = "Average annotated length (bp)",
+    fill = "Species",
+    caption = "Only classes with at least 5 annotations in a species are shown"
+  ) +
+  theme(legend.position = "bottom",
+        plot.caption = element_text(hjust = 0))
+
+## Edit 3: improved plots - histogram on log scale with density and species overlaid; scatter plot without misleading smooth line, log scales,TE order colours and ggrepel labels; average length plot sorted, species side by side, classes with < 5 hits excluded. Note: requires the ggrepel package.
+
+
 
