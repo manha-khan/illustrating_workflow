@@ -1,20 +1,24 @@
-## Assignment 02 - Edits by Opeyemi Adesoji (oadesoji)
-## Edited from: assignment_01_group10_scriptfile.R (Group 10)
-## 2026-11-15
 
+## Assignment 02
+##
+## Contributors:
+## ## 1. Manha Khan (GitHub: https://github.com/manha-khan) - primary author
+##    of the original Assignment 01 script: data import, cleaning,
+##    TE summaries and original plots.
+##    2. Opeyemi Adesoji (oadesoji) - secondary contributor (Assignment 02):
+##    made the three edits listed below and minor fixes.
+##
+## Original script: R/assignment_01_group10_scriptfile.R
+## Edited: 2026-11-17
+##
 ## Edit 1: summarise_te() function replaces the duplicated summary
 ##         code; data paths fixed from "../data/" to "data/"
-
-
-## Edit 2: chi-square tests of TE composition between species, at order
-##         level and subclass level (simulated p-value for small counts)
-
-
-
-##***************************
-## Assignment 01 - Group 10 
-## 2026-11-02
 ##
+## Edit 2: chi-square tests of TE composition between species, at order level and subclass level (simulated p-value for small counts)
+##
+## Edit 3: improved plots - histogram on log scale with density and species overlaid; scatter plot without misleading smooth line, log scales, TE order colours and ggrepel labels; average length plot sorted, species side by side, classes with < 5 hits excluded. Note: requires the ggrepel package.
+
+
 ##***************************
 ## _ Packages used -------
 library(tidyverse)
